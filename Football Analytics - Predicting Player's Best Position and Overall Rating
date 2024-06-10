@@ -1,0 +1,1796 @@
+## ------------------------------------------------------------------- Load Libraries -----------------------------------------------------------------
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+from sklearn.metrics import mean_squared_error
+from mlxtend.feature_selection import ExhaustiveFeatureSelector
+from mlxtend.feature_selection import SequentialFeatureSelector
+import sklearn
+from sklearn.feature_selection import SelectKBest, f_regression
+from sklearn.preprocessing import MinMaxScaler
+import matplotlib.ticker as mtick
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import GridSearchCV
+
+
+## ------------------------------------------------------------------- Load Data -----------------------------------------------------------------
+#read in dataset
+Fifa = pd.read_csv("Fifa 23 Players Data.csv")
+
+#Afc Richmond dataset
+richmond_df = Fifa[Fifa['Club Name'] == 'AFC Richmond']
+
+#Drop AFC Richmond 
+Fifa = Fifa.loc[Fifa['Club Name'] != 'AFC Richmond']
+
+## ------------------------------------------------------------------- Data Pre-Processing -----------------------------------------------------------------
+
+#columns 
+Fifa.columns
+#info
+PlayerPosition = Fifa['Best Position'].unique()
+print(PlayerPosition)
+
+## ------------------------------------------------------------------- Data Wrangling -----------------------------------------------------------------
+
+#create subset with required columns
+Fifa_subset = Fifa.drop(['Overall','Known As', 'Potential', 'Positions Played', 'Image Link', 'TotalStats', 'BaseStats', 'Club Position', 'Club Jersey Number', 'Joined On', 'On Loan', 'International Reputation', 'National Team Name','National Team Image Link', 'National Team Position','National Team Jersey Number'], axis=1)
+
+CAM = Fifa_subset[Fifa_subset['Best Position'] == 'CAM']
+CAM_Rqd = CAM.drop(['Goalkeeper Diving', 'Goalkeeper Handling', ' GoalkeeperKicking','Goalkeeper Positioning', 'Goalkeeper Reflexes', 'ST Rating','LW Rating', 'LF Rating', 'CF Rating', 'RF Rating', 'RW Rating', 'LM Rating', 'CM Rating', 'RM Rating', 'LWB Rating','CDM Rating', 'RWB Rating', 'LB Rating', 'CB Rating', 'RB Rating','GK Rating'],axis = 1)
+
+CF = Fifa_subset[Fifa_subset['Best Position'] == 'CF']
+CF_Rqd = CF.drop(['Goalkeeper Diving', 'Goalkeeper Handling', ' GoalkeeperKicking','Goalkeeper Positioning', 'Goalkeeper Reflexes', 'ST Rating','LW Rating', 'LF Rating','RF Rating', 'RW Rating','CAM Rating', 'LM Rating', 'CM Rating', 'RM Rating', 'LWB Rating','CDM Rating', 'RWB Rating', 'LB Rating', 'CB Rating', 'RB Rating','GK Rating'],axis = 1)
+
+ST = Fifa_subset[Fifa_subset['Best Position'] == 'ST']
+ST_Rqd = ST.drop(['Goalkeeper Diving','Goalkeeper Handling',' GoalkeeperKicking','Goalkeeper Positioning', 'Goalkeeper Reflexes', 'CAM Rating','LW Rating', 'LF Rating', 'CF Rating', 'RF Rating', 'RW Rating', 'LM Rating', 'CM Rating', 'RM Rating', 'LWB Rating','CDM Rating', 'RWB Rating', 'LB Rating', 'CB Rating', 'RB Rating','GK Rating'], axis=1)
+
+CM = Fifa_subset[Fifa_subset['Best Position'] == 'CM']
+CM_Rqd = CM.drop(['Goalkeeper Diving', 'Goalkeeper Handling', ' GoalkeeperKicking','Goalkeeper Positioning', 'Goalkeeper Reflexes', 'ST Rating','LW Rating', 'LF Rating', 'CF Rating', 'RF Rating','CAM Rating', 'RW Rating', 'LM Rating','RM Rating', 'LWB Rating','CDM Rating', 'RWB Rating', 'LB Rating', 'CB Rating', 'RB Rating','GK Rating'],axis = 1)
+
+RW = Fifa_subset[Fifa_subset['Best Position'] == 'RW']
+RW_Rqd = RW.drop(['ST Rating','Goalkeeper Diving','Goalkeeper Handling',' GoalkeeperKicking','Goalkeeper Positioning', 'Goalkeeper Reflexes', 'CAM Rating','LW Rating', 'LF Rating', 'CF Rating', 'RF Rating', 'CAM Rating', 'LM Rating', 'CM Rating', 'RM Rating', 'LWB Rating','CDM Rating', 'RWB Rating', 'LB Rating', 'CB Rating', 'RB Rating','GK Rating'], axis=1)
+
+GK = Fifa_subset[Fifa_subset['Best Position'] == 'GK']
+GK_Rqd = GK.drop(['CAM Rating','ST Rating','CDM Rating','LF Rating', 'CF Rating', 'RF Rating', 'RW Rating', 'LM Rating', 'CM Rating', 'RM Rating', 'LWB Rating','RWB Rating', 'LB Rating', 'CB Rating', 'RB Rating','LW Rating'], axis=1)
+
+CB = Fifa_subset[Fifa_subset['Best Position'] == 'CB']
+CB_Rqd = CB.drop(['CAM Rating','Goalkeeper Diving','Goalkeeper Handling',' GoalkeeperKicking','Goalkeeper Positioning', 'Goalkeeper Reflexes', 'ST Rating','CDM Rating','LF Rating', 'CF Rating', 'RF Rating', 'RW Rating', 'LM Rating', 'CM Rating', 'RM Rating', 'LWB Rating','RWB Rating', 'LB Rating', 'GK Rating','RB Rating','LW Rating'], axis=1)
+
+LW = Fifa_subset[Fifa_subset['Best Position'] == 'LW']
+LW_Rqd = LW.drop(['CAM Rating','Goalkeeper Diving','Goalkeeper Handling',' GoalkeeperKicking','Goalkeeper Positioning', 'Goalkeeper Reflexes', 'ST Rating','CDM Rating', 'LF Rating', 'CF Rating', 'RF Rating', 'RW Rating', 'LM Rating', 'CM Rating', 'RM Rating', 'LWB Rating','RWB Rating', 'LB Rating', 'CB Rating','RB Rating','GK Rating'], axis=1)
+
+CDM = Fifa_subset[Fifa_subset['Best Position'] == 'CDM']
+CDM_Rqd = CDM.drop(['Goalkeeper Diving','Goalkeeper Handling',' GoalkeeperKicking','Goalkeeper Positioning', 'Goalkeeper Reflexes', 'CAM Rating','LW Rating', 'LF Rating', 'CF Rating', 'RF Rating', 'CAM Rating', 'LM Rating', 'CM Rating', 'RM Rating', 'LWB Rating','CAM Rating', 'RWB Rating', 'LB Rating', 'CB Rating', 'RB Rating','GK Rating'], axis=1)
+
+LM = Fifa_subset[Fifa_subset['Best Position'] == 'LM']
+LM_Rqd = LM.drop(['ST Rating','RW Rating', 'Goalkeeper Diving','Goalkeeper Handling',' GoalkeeperKicking','Goalkeeper Positioning', 'Goalkeeper Reflexes', 'CAM Rating','LW Rating', 'LF Rating', 'CF Rating', 'RF Rating', 'CAM Rating', 'CAM Rating', 'CM Rating', 'RM Rating', 'LWB Rating','CAM Rating', 'RWB Rating', 'LB Rating', 'CB Rating', 'RB Rating','GK Rating'], axis=1)
+
+LB = Fifa_subset[Fifa_subset['Best Position'] == 'LB']
+LB_Rqd = LB.drop(['Goalkeeper Diving','Goalkeeper Handling',' GoalkeeperKicking','Goalkeeper Positioning', 'Goalkeeper Reflexes', 'ST Rating','LW Rating', 'LF Rating', 'CF Rating', 'RF Rating', 'RW Rating', 'LM Rating', 'CM Rating', 'RM Rating', 'LWB Rating','CDM Rating', 'RWB Rating', 'CAM Rating', 'CB Rating', 'RB Rating','GK Rating'], axis=1)
+
+
+RM = Fifa_subset[Fifa_subset['Best Position'] == 'RM']
+RM_Rqd = RM.drop(['Goalkeeper Diving','Goalkeeper Handling',' GoalkeeperKicking','Goalkeeper Positioning', 'Goalkeeper Reflexes', 'ST Rating','LW Rating', 'LF Rating', 'CF Rating', 'RF Rating', 'RW Rating', 'LM Rating', 'CM Rating', 'CAM Rating', 'LWB Rating','CDM Rating', 'RWB Rating', 'LB Rating', 'CB Rating', 'RB Rating','GK Rating'], axis=1)
+
+RB = Fifa_subset[Fifa_subset['Best Position'] == 'RB']
+RB_Rqd = RB.drop(['Goalkeeper Diving','Goalkeeper Handling',' GoalkeeperKicking','Goalkeeper Positioning', 'Goalkeeper Reflexes', 'ST Rating','LW Rating', 'LF Rating', 'CF Rating', 'RF Rating', 'RW Rating', 'LM Rating', 'CM Rating', 'RM Rating', 'LWB Rating','CDM Rating', 'RWB Rating', 'LB Rating', 'CB Rating', 'CAM Rating','GK Rating'], axis=1)
+
+LWB = Fifa_subset[Fifa_subset['Best Position'] == 'LWB']
+LWB_Rqd = LWB.drop(['Goalkeeper Diving','Goalkeeper Handling',' GoalkeeperKicking','Goalkeeper Positioning', 'Goalkeeper Reflexes', 'ST Rating','LW Rating', 'LF Rating', 'CF Rating', 'RF Rating', 'RW Rating', 'LM Rating', 'CM Rating', 'RM Rating', 'CAM Rating','CDM Rating', 'RWB Rating', 'LB Rating', 'CB Rating', 'RB Rating','GK Rating'], axis=1)
+
+RWB = Fifa_subset[Fifa_subset['Best Position'] == 'RWB']
+RWB_Rqd = RWB.drop(['Goalkeeper Diving','Goalkeeper Handling',' GoalkeeperKicking','Goalkeeper Positioning', 'Goalkeeper Reflexes', 'ST Rating','LW Rating', 'LF Rating', 'CF Rating', 'RF Rating', 'RW Rating', 'LM Rating', 'CM Rating', 'RM Rating', 'LWB Rating','CDM Rating', 'CAM Rating', 'LB Rating', 'CB Rating', 'RB Rating','GK Rating'], axis=1)
+
+## ------------------------------------------------------------------- Exploratory Data Analysis -----------------------------------------------------------------------------------
+
+sns.heatmap(Fifa.corr())
+plt.title('Fifa 23 - Dataset Heatmap')
+plt.figure(figsize=(300,10))
+
+Fifa.info()
+
+#Overall Player Ratings and Age by Player Position
+sns.relplot(y = 'Overall', x = 'Age', data = Fifa, hue = 'Best Position')
+plt.title('Fifa 23 - Player Distribution by Overall Rating, Age and Position')
+plt.ylabel('Overall Rating', fontsize = 10)
+plt.xlabel('Age', fontsize = 10)
+plt.xticks(fontsize = 10, rotation = 0)
+plt.yticks(fontsize = 10)
+
+#Overall Player Valuation and Age by Player Position
+sns.relplot(y='Value(in Euro)', x='Age', data=Fifa, hue='Best Position')
+plt.title('Fifa 23 - Player Distribution by Valuation, Age and Position')
+plt.ylim(0, 200000000)
+plt.yticks(range(0, 200000001, 10000000))
+plt.ylabel('Value In Euro', fontsize=10)
+
+# Format the y-axis labels to display values in millions
+formatter = mtick.FuncFormatter(lambda x, pos: f'{x / 1000000:.0f}M')
+plt.gca().yaxis.set_major_formatter(formatter)
+
+# -------------------------------------------------------------------- Filter Search ------------------------------------------------------------------------------------------------
+# Filter the players based on the given conditions
+
+budget = 176260000
+budgets = {'CM': budget * 0.4, 'CDM': budget * 0.3, 'CAM': budget * 0.15, 'CB': budget * 0.15}
+
+players = Fifa[(Fifa['CAM Rating'] > 20) & (Fifa['CM Rating'] > 30) & (Fifa['CDM Rating'] > 20) & (Fifa['CB Rating'] > 30) & (Fifa['Age'] < 28)]
+
+CAM_Subset = Fifa.loc[(Fifa['CAM Rating']>80) & (Fifa['Age']<28) & (Fifa['Best Position']=='CAM') & (Fifa['Value(in Euro)']<= budget * 0.15)]
+CM_Subset =  Fifa.loc[(Fifa['CM Rating']>70) & (Fifa['Age']<28) & (Fifa['Best Position']=='CM') & (Fifa['Value(in Euro)']<= budget * 0.4)] 
+CDM_Subset = Fifa.loc[(Fifa['CDM Rating']>80) & (Fifa['Age']<28) & (Fifa['Best Position']=='CDM') & (Fifa['Value(in Euro)']<= budget * 0.3)]
+CB_Subset =  Fifa.loc[(Fifa['CB Rating']>70) & (Fifa['Age']<28) & (Fifa['Best Position']=='CB') & (Fifa['Value(in Euro)']<= budget * 0.15)]
+
+players = pd.concat([CAM_Subset, CM_Subset, CDM_Subset, CB_Subset], axis=0)
+
+# Calculate the budget allocated for each position based on the given percentages
+budget = 176260000
+budgets = {'CM': budget * 0.4, 'CDM': budget * 0.3, 'CAM': budget * 0.15, 'CB': budget * 0.15}
+
+# sort the players based on their overall rating
+players = players.sort_values(by=['Overall'], ascending=False)
+
+# allocate the budget for each position based on the sorted players until the budget for each position is exhausted
+selected_players = {'CM': [], 'CDM': [], 'CAM': [], 'CB': []}
+for index, player in players.iterrows():
+    if budgets[player['Best Position']] >= player['Value(in Euro)']:
+        selected_players[player['Best Position']].append((player['Full Name'], player['Overall'], player['Value(in Euro)']))
+        budgets[player['Best Position']] -= player['Value(in Euro)']
+
+# print the selected players for each position along with their overall rating and cost
+for position, players in selected_players.items():
+    print(f'{position} Players:')
+    for player in players:
+        print(f'{player[0]} (Overall Rating: {player[1]}, Cost: {player[2]}M)')
+    print()
+
+
+# -------------------------------------------------------------------- Analysis ------------------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------- CAM -----------------------------------------------------------------------------------------------------
+##CAM - Rating - Prediction
+
+CAM_Rqd = CAM_Rqd.drop(['Full Name', 'Best Position', 'Preferred Foot', 'Nationality', 'Club Name', 'Contract Until', 'Release Clause', 'Preferred Foot'], axis = 1)
+CAM_Rqd = pd.get_dummies(CAM_Rqd, drop_first = True)
+
+x = CAM_Rqd.drop(columns = 'CAM Rating')
+y = CAM_Rqd['CAM Rating']
+
+x_train, x_test, y_train, y_test = train_test_split(x,y,test_size = 0.3, random_state = 1)
+
+selector_CAM = SelectKBest(score_func=f_regression, k=10)
+x_new = selector_CAM.fit_transform(x, y)
+##Comment for TA - If you receive an error here, please add 'Unnamed: 27' to the dataframe line 166
+# Get the names of the selected features
+selected_features_CAM = x.columns[selector_CAM.get_support(indices=True)].tolist()
+
+# Fit a linear regression model with the selected features
+model_CAM = LinearRegression()
+model_CAM.fit(x_new, y)
+
+# Hard-coded hypothetical values for the selected features for player Jamie Tart
+x_hypothetical_CAM = [87, 80, 85, 86, 83, 88, 85, 81, 84, 81]
+
+# Make a prediction using the fitted model and the hypothetical values
+prediction_CAM = model_CAM.predict([x_hypothetical_CAM])
+
+# Print the selected features and the prediction
+print("Selected features:", selected_features_CAM)
+print("Prediction:", prediction_CAM)#84
+#FIFA CAM RATING - 86
+
+######CAM - Valuation - Prediction
+
+X = CAM_Rqd[['Shooting Total', 'Passing Total', 'Dribbling Total', 'Finishing', 'Short Passing', 'Dribbling', 'BallControl', 'Reactions', 'Positioning', 'Vision']]
+Y = CAM_Rqd['Value(in Euro)']
+
+# Split the data into training and testing sets
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1)
+
+# Train a Random Forest model on your data
+rf_CAM = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_CAM.fit(X_train, Y_train)
+
+# Get feature importances and sort them in descending order
+feature_importances_CAM = rf_CAM.feature_importances_
+sorted_idx_CAM = np.argsort(feature_importances_CAM)[::-1]
+
+# Get the indices of the 10 most important features
+top_10_idx_CAM = sorted_idx_CAM[:10]
+
+# Get the corresponding feature names
+top_10_features_CAM = X_train.columns[top_10_idx_CAM]
+
+#Put top 10 features in a dataframe called X_train and X_test
+X_train_top10_CAM = X_train[top_10_features_CAM]
+X_test_top10_CAM = X_test[top_10_features_CAM]
+
+# Train a Random Forest model on your data
+rf_top10_CAM = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_top10_CAM.fit(X_train_top10_CAM, Y_train)
+
+Y_pred = rf_top10_CAM.predict(X_test_top10_CAM)
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+##Tuning
+# Define the parameter grid for hyperparameter tuning
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10]
+}
+
+# Create a Random Forest regressor object
+rf_CAM = RandomForestRegressor(random_state=1)
+
+# Create a GridSearchCV object and fit it to the data
+grid_search = GridSearchCV(rf_CAM, param_grid, cv=5, scoring='neg_root_mean_squared_error')
+grid_search.fit(X_train_top10_CAM, Y_train)
+
+# Get the best hyperparameters
+best_params_CAM = grid_search.best_params_
+
+# Use the best hyperparameters to create a new Random Forest model
+rf_best_CAM = RandomForestRegressor(n_estimators=best_params_CAM['n_estimators'], 
+                                 max_depth=best_params_CAM['max_depth'], 
+                                 min_samples_split=best_params_CAM['min_samples_split'], 
+                                 random_state=1)
+
+# Fit the new model on the training data
+rf_best_CAM.fit(X_train_top10_CAM, Y_train)
+
+# Make predictions on the test data
+Y_pred = rf_best_CAM.predict(X_test_top10_CAM)
+
+# Calculate the RMSE
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)#3479643
+
+# Hard-coded hypothetical values for the selected features for player Jamie Tart
+X_CAM_hypothetical = [85, 85, 81, 86, 83, 88, 84, 81, 87, 80]
+
+# Make a prediction using the fitted model and the hypothetical values
+prediction_CAM = rf_best_CAM.predict([X_CAM_hypothetical])
+print("Selected features:", rf_best_CAM)
+print("Prediction:", prediction_CAM)#44233000
+#FIFA VALUE - 85.5M
+
+# ---------------------------------------------------------------------- CF -----------------------------------------------------------------------------------------------------
+
+##CF - Rating - Prediction
+#If you receive an error here, please add 'Unnamed: 27' to the dataframe below
+CF_Rqd = CF_Rqd.drop(['Full Name', 'Best Position', 'Preferred Foot', 'Nationality', 'Club Name','Contract Until', 'Release Clause', 'Preferred Foot'], axis = 1)
+CF_Rqd = pd.get_dummies(CF_Rqd, drop_first = True)
+
+x = CF_Rqd.drop(columns = 'CF Rating')
+y = CF_Rqd['CF Rating']
+
+x_train,x_test, y_train, y_test = train_test_split(x,y,test_size = 0.3, random_state = 1)
+
+selector_CF = SelectKBest(score_func=f_regression, k=10)
+x_new = selector_CF.fit_transform(x, y)
+##Comment for TA - If you receive an error here, please add 'Unnamed: 27' to the dataframe line 276
+# Get the names of the selected features
+selected_features_CF = x.columns[selector_CF.get_support(indices=True)].tolist()
+
+# Fit a linear regression model with the selected features
+model_CF= LinearRegression()
+model_CF.fit(x_new, y)
+
+# Hard-coded hypothetical values for the selected features for a Center Forward BENZEMA
+x_CF_hypothetical = [88, 83, 87, 92, 89, 87, 91, 92, 80, 92]
+
+# Make a prediction using the fitted model and the hypothetical values for a CF
+prediction_CF = model_CF.predict([x_CF_hypothetical])
+
+# Print the selected features and the prediction
+print("Selected features:", selected_features_CF)
+print("Prediction:", prediction_CF)#87.2
+#FIFA- 89
+
+
+##CF - Valuation - Prediction
+
+X = CF_Rqd[['Shooting Total', 'Passing Total', 'Dribbling Total', 'Finishing', 'Short Passing', 'Dribbling', 'BallControl', 'Reactions', 'Long Shots', 'Positioning']]
+Y = CF_Rqd['Value(in Euro)']
+
+# Split the data into training and testing sets
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1)
+
+# Train a Random Forest model on your data
+rf_CF = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_CF.fit(X_train, Y_train)
+
+# Get feature importances and sort them in descending order
+feature_importances_CF = rf_CF.feature_importances_
+sorted_idx_CF = np.argsort(feature_importances_CF)[::-1]
+
+# Get the indices of the 10 most important features
+top_10_idx_CF = sorted_idx_CF[:10]
+
+# Get the corresponding feature names
+top_10_features_CF = X_train.columns[top_10_idx_CF]
+
+#Put top 10 features in a dataframe called X_train and X_test
+X_train_top10_CF = X_train[top_10_features_CF]
+X_test_top10_CF = X_test[top_10_features_CF]
+
+# Train a Random Forest model on your data
+rf_top10_CF = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_top10_CF.fit(X_train_top10_CF, Y_train)
+
+Y_pred = rf_top10_CF.predict(X_test_top10_CF)
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+##Tuning
+# Define the parameter grid for hyperparameter tuning
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10]
+}
+
+# Create a Random Forest regressor object
+rf_CF = RandomForestRegressor(random_state=1)
+
+# Create a GridSearchCV object and fit it to the data
+grid_search = GridSearchCV(rf_CF, param_grid, cv=5, scoring='neg_root_mean_squared_error')
+grid_search.fit(X_train_top10_CF, Y_train)
+
+# Get the best hyperparameters
+best_params_CF = grid_search.best_params_
+
+# Use the best hyperparameters to create a new Random Forest model
+rf_best_CF = RandomForestRegressor(n_estimators=best_params_CF['n_estimators'], 
+                                 max_depth=best_params_CF['max_depth'], 
+                                 min_samples_split=best_params_CF['min_samples_split'], 
+                                 random_state=1)
+
+# Fit the new model on the training data
+rf_best_CF.fit(X_train_top10_CF, Y_train)
+
+# Make predictions on the test data
+Y_pred = rf_best_CF.predict(X_test_top10_CF)
+
+# Calculate the RMSE
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)#
+
+# Hard-coded hypothetical values for the selected features for player CF BENZEMA
+X_CF_hypothetical = [83, 91, 89, 88, 87, 92, 92, 87, 92, 80]
+
+# Make a prediction using the fitted model and the hypothetical values
+prediction_CF = rf_best_CF.predict([X_CF_hypothetical])
+print("Selected features:", rf_best_CF)
+print("Prediction:", prediction_CF)#55255000
+#FIFA VALUE - 64M
+
+# ---------------------------------------------------------------------- ST -----------------------------------------------------------------------------------------------------
+
+##ST - Rating - Prediction
+#If you receive an error here, please add 'Unnamed: 27' to the dataframe below
+ST_Rqd = ST_Rqd.drop(['Full Name', 'Best Position', 'Preferred Foot', 'Nationality', 'Club Name','Contract Until', 'Release Clause', 'Preferred Foot'], axis = 1)
+ST_Rqd = pd.get_dummies(ST_Rqd, drop_first = True)
+
+x = ST_Rqd.drop(columns = 'ST Rating')
+y = ST_Rqd['ST Rating']
+
+x_train,  x_test, y_train, y_test = train_test_split(x,y,test_size = 0.3, random_state = 1)
+
+selector_ST = SelectKBest(score_func=f_regression, k=10)
+x_new = selector_ST.fit_transform(x, y)
+##Comment for TA - If you receive an error here, please add 'Unnamed: 27' to the dataframe line 387
+# Get the names of the selected features
+selected_features_ST = x.columns[selector_ST.get_support(indices=True)].tolist()
+
+# Fit a linear regression model with the selected features
+model_ST= LinearRegression()
+model_ST.fit(x_new, y)
+
+
+
+# Hard-coded hypothetical values for the selected features
+x_ST_hypothetical = [83, 82, 83, 77, 84, 82, 81, 85, 84, 80]
+
+# Make a prediction using the fitted model and the hypothetical values for Dani Rojas
+prediction_ST = model_ST.predict([x_ST_hypothetical])
+
+# Print the selected features and the prediction
+print("Selected features:", selected_features_ST)
+print("Prediction:", prediction_ST)#82.2
+#FIFA VALUE - 83
+
+##ST - Valuation - Prediction
+
+
+X = ST_Rqd[['Shooting Total', 'Dribbling Total','Finishing' ,'Short Passing' ,'Dribbling' , 'BallControl','Reactions' , 'Shot Power', 'Positioning', 'Composure']]
+Y = ST_Rqd['Value(in Euro)']
+
+# Split the data into training and testing sets
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1)
+
+# Train a Random Forest model on your data
+rf_ST = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_ST.fit(X_train, Y_train)
+
+# Get feature importances and sort them in descending order
+feature_importances_ST = rf_ST.feature_importances_
+sorted_idx_ST = np.argsort(feature_importances_ST)[::-1]
+
+# Get the indices of the 10 most important features
+top_10_idx_ST = sorted_idx_ST[:10]
+
+# Get the corresponding feature names
+top_10_features_ST = X_train.columns[top_10_idx_ST]
+
+#Put top 10 features in a dataframe called X_train and X_test
+X_train_top10_ST= X_train[top_10_features_ST]
+X_test_top10_ST = X_test[top_10_features_ST]
+
+# Train a Random Forest model on your data
+rf_top10_ST = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_top10_ST.fit(X_train_top10_ST, Y_train)
+
+Y_pred = rf_top10_ST.predict(X_test_top10_ST)
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+##Tuning
+# Define the parameter grid for hyperparameter tuning
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10]
+}
+
+# Create a Random Forest regressor object
+rf_ST = RandomForestRegressor(random_state=1)
+
+# Create a GridSearchCV object and fit it to the data
+grid_search = GridSearchCV(rf_ST, param_grid, cv=5, scoring='neg_root_mean_squared_error')
+grid_search.fit(X_train_top10_ST, Y_train)
+
+# Get the best hyperparameters
+best_params_ST = grid_search.best_params_
+
+# Use the best hyperparameters to create a new Random Forest model
+rf_best_ST = RandomForestRegressor(n_estimators=best_params_ST['n_estimators'], 
+                                 max_depth=best_params_ST['max_depth'], 
+                                 min_samples_split=best_params_ST['min_samples_split'], 
+                                 random_state=1)
+
+# Fit the new model on the training data
+rf_best_ST.fit(X_train_top10_ST, Y_train)
+
+# Make predictions on the test data
+Y_pred = rf_best_ST.predict(X_test_top10_ST)
+
+# Calculate the RMSE
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+# Hard-coded hypothetical values for the selected features for player DANI ROJAS
+X_ST_hypothetical = [82, 83, 83, 82, 81, 84, 85, 84, 80, 77]
+
+# Make a prediction using the fitted model and the hypothetical values
+prediction_ST= rf_best_ST.predict([X_ST_hypothetical])
+print("Selected features:", rf_best_ST)
+print("Prediction:", prediction_ST)#35.8M
+#FIFA - 36.5 M
+
+# ---------------------------------------------------------------------- CM -----------------------------------------------------------------------------------------------------
+
+##CM - Rating - Prediction
+#If you receive an error here, please add 'Unnamed: 27' to the dataframe below
+CM_Rqd = CM_Rqd.drop(['Full Name', 'Best Position', 'Preferred Foot', 'Nationality', 'Club Name','Contract Until', 'Release Clause', 'Preferred Foot'], axis = 1)
+CM_Rqd = pd.get_dummies(CM_Rqd, drop_first = True)
+
+x = CM_Rqd.drop(columns = 'CM Rating')
+y = CM_Rqd['CM Rating']
+
+x_train,x_test, y_train, y_test = train_test_split(x,y,test_size = 0.3, random_state = 1)
+
+selector_CM = SelectKBest(score_func=f_regression, k=10)
+x_new = selector_CM.fit_transform(x, y)
+##Comment for TA - If you receive an error here, please add 'Unnamed: 27' to the dataframe line 500
+# Get the names of the selected features
+selected_features_CM = x.columns[selector_CM.get_support(indices=True)].tolist()
+
+# Fit a linear regression model with the selected features
+model_CM= LinearRegression()
+model_CM.fit(x_new, y)
+
+# Hard-coded hypothetical values for the selected features for MOE BUMBERCATCH
+x_hypothetical_CM = [78, 81, 72, 85, 81, 80, 82, 76, 80, 78]
+
+# Make a prediction using the fitted model and the hypothetical values for MOE BUMBERCATCH
+prediction_CM = model_CM.predict([x_hypothetical_CM])
+
+# Print the selected features and the prediction
+print("Selected features:", selected_features_CM)
+print("Prediction:", prediction_CM)#80.0
+#FIFA VALUE - 81
+
+##CM - Valuation - Prediction
+
+X = CM_Rqd[['Passing Total','Dribbling Total','Defending Total','Short Passing','Dribbling','LongPassing','BallControl','Reactions','Vision','Composure']]
+Y = CM_Rqd['Value(in Euro)']
+
+
+# Split the data into training and testing sets
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1)
+
+# Train a Random Forest model on your data
+rf_CM = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_CM.fit(X_train, Y_train)
+
+# Get feature importances and sort them in descending order
+feature_importances_CM = rf_CM.feature_importances_
+sorted_idx_CM = np.argsort(feature_importances_CM)[::-1]
+
+# Get the indices of the 10 most important features
+top_10_idx_CM = sorted_idx_CM[:10]
+
+# Get the corresponding feature names
+top_10_features_CM = X_train.columns[top_10_idx_CM]
+
+#Put top 10 features in a dataframe called X_train and X_test
+X_train_top10_CM = X_train[top_10_features_CM]
+X_test_top10_CM = X_test[top_10_features_CM]
+
+# Train a Random Forest model on your data
+rf_top10_CM = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_top10_CM.fit(X_train_top10_CM, Y_train)
+
+Y_pred = rf_top10_CM.predict(X_test_top10_CM)
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+##Tuning
+# Define the parameter grid for hyperparameter tuning
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10]
+}
+
+# Create a Random Forest regressor object
+rf_CM = RandomForestRegressor(random_state=1)
+
+# Create a GridSearchCV object and fit it to the data
+grid_search = GridSearchCV(rf_CM, param_grid, cv=5, scoring='neg_root_mean_squared_error')
+grid_search.fit(X_train_top10_CM, Y_train)
+
+# Get the best hyperparameters
+best_params_CM = grid_search.best_params_
+
+# Use the best hyperparameters to create a new Random Forest model
+rf_best_CM = RandomForestRegressor(n_estimators=best_params_CM['n_estimators'], 
+                                 max_depth=best_params_CM['max_depth'], 
+                                 min_samples_split=best_params_CM['min_samples_split'], 
+                                 random_state=1)
+
+# Fit the new model on the training data
+rf_best_CM.fit(X_train_top10_CM, Y_train)
+
+# Make predictions on the test data
+Y_pred = rf_best_CM.predict(X_test_top10_CM)
+
+# Calculate the RMSE
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+# Hard-coded hypothetical values for the selected features for player MOE BUMBERCATCH
+X_CM_hypothetical = [85, 76, 82, 80, 81, 72, 80, 81, 78, 78]
+
+# Make a prediction using the fitted model and the hypothetical values
+prediction_CM = rf_best_CM.predict([X_CM_hypothetical])
+print("Selected features:", rf_best_CM)
+print("Prediction:", prediction_CM)#27430783
+#FIFA VALUE - 23M
+
+
+# ---------------------------------------------------------------------- RW -----------------------------------------------------------------------------------------------------
+
+##RW - Rating - Prediction
+
+RW_Rqd = RW_Rqd.drop(['Full Name', 'Best Position', 'Preferred Foot', 'Nationality', 'Club Name','Contract Until', 'Release Clause', 'Preferred Foot'], axis = 1)
+RW_Rqd = pd.get_dummies(RW_Rqd, drop_first = True)
+
+x = RW_Rqd.drop(columns = 'RW Rating')
+y = RW_Rqd['RW Rating']
+
+x_train,x_test, y_train, y_test = train_test_split(x,y,test_size = 0.3, random_state = 1)
+
+selector_RW = SelectKBest(score_func=f_regression, k=10)
+x_new = selector_RW.fit_transform(x, y)
+##Comment for TA - If you receive an error here, please add 'Unnamed: 27' to the dataframe line 612
+# Get the names of the selected features
+selected_features_RW = x.columns[selector_RW.get_support(indices=True)].tolist()
+
+# Fit a linear regression model with the selected features
+model_RW= LinearRegression()
+model_RW.fit(x_new, y)
+
+# Hard-coded hypothetical values for the selected features for SALAH
+RW_hypothetical = [89, 82, 90, 80, 93, 84, 90, 88, 93, 92]
+
+# Make a prediction using the fitted model and the hypothetical values for Salah
+prediction_RW = model_RW.predict([RW_hypothetical])
+
+# Print the selected features and the prediction
+print("Selected features:", selected_features_RW)
+print("Prediction:", prediction_RW)#87.8
+#FIFA rating - 87.8
+
+##RW - Valuation - Prediction
+
+X = RW_Rqd[['Shooting Total', 'Passing Total', 'Dribbling Total', 'Crossing', 'Finishing', 'Short Passing', 'Dribbling', 'BallControl', 'Reactions', 'Positioning']]
+Y = RW_Rqd['Value(in Euro)']
+
+# Split the data into training and testing sets
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1)
+
+# Train a Random Forest model on your data
+rf_RW = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_RW.fit(X_train, Y_train)
+
+# Get feature importances and sort them in descending order
+feature_importances_RW = rf_RW.feature_importances_
+sorted_idx_RW = np.argsort(feature_importances_RW)[::-1]
+
+# Get the indices of the 10 most important features
+top_10_idx_RW = sorted_idx_RW[:10]
+
+# Get the corresponding feature names
+top_10_features_RW = X_train.columns[top_10_idx_RW]
+
+#Put top 10 features in a dataframe called X_train and X_test
+X_train_top10_RW = X_train[top_10_features_RW]
+X_test_top10_RW = X_test[top_10_features_RW]
+
+# Train a Random Forest model on your data
+rf_top10_RW = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_top10_RW.fit(X_train_top10_RW, Y_train)
+
+Y_pred = rf_top10_RW.predict(X_test_top10_RW)
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+##Tuning
+# Define the parameter grid for hyperparameter tuning
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10]
+}
+
+# Create a Random Forest regressor object
+rf_RW = RandomForestRegressor(random_state=1)
+
+# Create a GridSearchCV object and fit it to the data
+grid_search = GridSearchCV(rf_RW, param_grid, cv=5, scoring='neg_root_mean_squared_error')
+grid_search.fit(X_train_top10_RW, Y_train)
+
+# Get the best hyperparameters
+best_params_RW = grid_search.best_params_
+
+# Use the best hyperparameters to create a new Random Forest model
+rf_best_RW = RandomForestRegressor(n_estimators=best_params_RW['n_estimators'], 
+                                 max_depth=best_params_RW['max_depth'], 
+                                 min_samples_split=best_params_RW['min_samples_split'], 
+                                 random_state=1)
+
+# Fit the new model on the training data
+rf_best_RW.fit(X_train_top10_RW, Y_train)
+
+# Make predictions on the test data
+Y_pred = rf_best_RW.predict(X_test_top10_RW)
+
+# Calculate the RMSE
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+# Hard-coded hypothetical values for the selected features for player SALAH
+X_RW_hypothetical = [88, 90, 92, 89, 93, 93, 90, 84, 82, 80]
+
+# Make a prediction using the fitted model and the hypothetical values
+prediction_RW = rf_best_RW.predict([X_RW_hypothetical])
+print("Selected features:", rf_best_RW)
+print("Prediction:", prediction_RW)#94350000
+#FIFA VALUE - 115M
+
+# ---------------------------------------------------------------------- GK -----------------------------------------------------------------------------------------------------
+
+##GK - Rating - Prediction
+
+GK_Rqd = GK_Rqd.drop(['Full Name', 'Best Position', 'Preferred Foot', 'Nationality', 'Club Name','Contract Until', 'Release Clause', 'Preferred Foot'], axis = 1)
+GK_Rqd = pd.get_dummies(GK_Rqd, drop_first = True)
+
+x = GK_Rqd.drop(columns = 'GK Rating')
+y = GK_Rqd['GK Rating']
+
+x_train,x_test, y_train, y_test = train_test_split(x,y,test_size = 0.3, random_state = 1)
+
+selector_GK = SelectKBest(score_func=f_regression, k=10)
+x_new = selector_GK.fit_transform(x, y)
+##Comment for TA - If you receive an error here, please add 'Unnamed: 27' to the dataframe line 722
+# Get the names of the selected features
+selected_features_GK = x.columns[selector_GK.get_support(indices=True)].tolist()
+
+# Fit a linear regression model with the selected features
+model_GK= LinearRegression()
+model_GK.fit(x_new, y)
+
+# Hard-coded hypothetical values for the selected features for 
+GK_hypothetical = [76, 77, 80, 71, 73, 76, 77, 72, 71, 80]
+
+# Make a prediction using the fitted model and the hypothetical values for Thierry Zoreaux
+prediction_GK = model_GK.predict([GK_hypothetical])
+
+# Print the selected features and the prediction
+print("Selected features:", selected_features_GK)
+print("Prediction:", prediction_GK)#77
+#Fif rating - 77
+
+##GK - Valuation - Prediction
+
+X = GK_Rqd[['Pace Total', 'Shooting Total', 'Dribbling Total', 'Physicality Total', 'Reactions', 'Goalkeeper Diving', 'Goalkeeper Handling', ' GoalkeeperKicking', 'Goalkeeper Positioning','Goalkeeper Reflexes' ]]
+Y = GK_Rqd['Value(in Euro)']
+
+# Split the data into training and testing sets
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1)
+
+# Train a Random Forest model on your data
+rf_GK = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_GK.fit(X_train, Y_train)
+
+# Get feature importances and sort them in descending order
+feature_importances_GK = rf_GK.feature_importances_
+sorted_idx_GK = np.argsort(feature_importances_GK)[::-1]
+
+# Get the indices of the 10 most important features
+top_10_idx_GK = sorted_idx_GK[:10]
+
+# Get the corresponding feature names
+top_10_features_GK = X_train.columns[top_10_idx_GK]
+
+#Put top 10 features in a dataframe called X_train and X_test
+X_train_top10_GK = X_train[top_10_features_GK]
+X_test_top10_GK = X_test[top_10_features_GK]
+
+# Train a Random Forest model on your data
+rf_top10_GK = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_top10_GK.fit(X_train_top10_GK, Y_train)
+
+Y_pred = rf_top10_GK.predict(X_test_top10_GK)
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+##Tuning
+# Define the parameter grid for hyperparameter tuning
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10]
+}
+
+# Create a Random Forest regressor object
+rf_GK = RandomForestRegressor(random_state=1)
+
+# Create a GridSearchCV object and fit it to the data
+grid_search = GridSearchCV(rf_GK, param_grid, cv=5, scoring='neg_root_mean_squared_error')
+grid_search.fit(X_train_top10_GK, Y_train)
+
+# Get the best hyperparameters
+best_params_GK = grid_search.best_params_
+
+# Use the best hyperparameters to create a new Random Forest model
+rf_best_GK = RandomForestRegressor(n_estimators=best_params_GK['n_estimators'], 
+                                 max_depth=best_params_GK['max_depth'], 
+                                 min_samples_split=best_params_GK['min_samples_split'], 
+                                 random_state=1)
+
+# Fit the new model on the training data
+rf_best_GK.fit(X_train_top10_GK, Y_train)
+
+# Make predictions on the test data
+Y_pred = rf_best_GK.predict(X_test_top10_GK)
+
+# Calculate the RMSE
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+# Hard-coded hypothetical values for the selected features for player Thierry Zoreaux
+GK_hypothetical = [80, 80, 73, 76, 76, 72, 77, 71, 77, 71]
+
+# Make a prediction using the fitted model and the hypothetical values
+prediction_GK = rf_best_GK.predict([GK_hypothetical])
+print("Selected features:", rf_best_GK)
+print("Prediction:", prediction_GK)#4348562
+#FIFA VALUE - 6M
+
+
+
+# ---------------------------------------------------------------------- CB -----------------------------------------------------------------------------------------------------
+
+##CB - Rating - Prediction
+
+CB_Rqd = CB_Rqd.drop(['Full Name', 'Best Position', 'Preferred Foot', 'Nationality', 'Club Name','Contract Until', 'Release Clause', 'Preferred Foot'], axis = 1)
+CB_Rqd = pd.get_dummies(CB_Rqd, drop_first = True)
+
+x = CB_Rqd.drop(columns = 'CB Rating')
+y = CB_Rqd['CB Rating']
+
+x_train,x_test, y_train, y_test = train_test_split(x,y,test_size = 0.3, random_state = 1)
+
+selector_CB = SelectKBest(score_func=f_regression, k=10)
+x_new = selector_CB.fit_transform(x, y)
+##Comment for TA - If you receive an error here, please add 'Unnamed: 27' to the dataframe line 834
+# Get the names of the selected features
+selected_features_CB = x.columns[selector_CB.get_support(indices=True)].tolist()
+
+# Fit a linear regression model with the selected features
+model_CB= LinearRegression()
+model_CB.fit(x_new, y)
+
+# Hard-coded hypothetical values for the selected features for Issac Mcadoo
+CB_hypothetical = [81, 81, 68, 65, 80, 78, 66, 81, 82, 79]
+
+# Make a prediction using the fitted model and the hypothetical values for Isaac Mcadoo
+prediction_CB = model_CB.predict([CB_hypothetical])
+
+# Print the selected features and the prediction
+print("Selected features:", selected_features_CB)
+print("Prediction:", prediction_CB)#79.9
+#FIFA - 82
+
+
+##CB - Valuation - Prediction
+
+X = CB_Rqd[['Defending Total','Heading Accuracy','Short Passing','BallControl','Reactions','Interceptions','Composure','Marking','Standing Tackle','Sliding Tackle']]
+Y = CB_Rqd['Value(in Euro)']
+
+# Split the data into training and testing sets
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1)
+
+# Train a Random Forest model on your data
+rf_CB = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_CB.fit(X_train, Y_train)
+
+# Get feature importances and sort them in descending order
+feature_importances_CB = rf_CB.feature_importances_
+sorted_idx_CB = np.argsort(feature_importances_CB)[::-1]
+
+# Get the indices of the 10 most important features
+top_10_idx_CB = sorted_idx_CB[:10]
+
+# Get the corresponding feature names
+top_10_features_CB = X_train.columns[top_10_idx_CB]
+
+#Put top 10 features in a dataframe called X_train and X_test
+X_train_top10_CB = X_train[top_10_features_CB]
+X_test_top10_CB = X_test[top_10_features_CB]
+
+# Train a Random Forest model on your data
+rf_top10_CB = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_top10_CB.fit(X_train_top10_CB, Y_train)
+
+Y_pred = rf_top10_CB.predict(X_test_top10_CB)
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+##Tuning
+# Define the parameter grid for hyperparameter tuning
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10]
+}
+
+# Create a Random Forest regressor object
+rf_CB = RandomForestRegressor(random_state=1)
+
+# Create a GridSearchCV object and fit it to the data
+grid_search = GridSearchCV(rf_CB, param_grid, cv=5, scoring='neg_root_mean_squared_error')
+grid_search.fit(X_train_top10_CB, Y_train)
+
+# Get the best hyperparameters
+best_params_CB = grid_search.best_params_
+
+# Use the best hyperparameters to create a new Random Forest model
+rf_best_CB = RandomForestRegressor(n_estimators=best_params_CB['n_estimators'], 
+                                 max_depth=best_params_CB['max_depth'], 
+                                 min_samples_split=best_params_CB['min_samples_split'], 
+                                 random_state=1)
+
+# Fit the new model on the training data
+rf_best_CB.fit(X_train_top10_CB, Y_train)
+
+# Make predictions on the test data
+Y_pred = rf_best_CB.predict(X_test_top10_CB)
+
+# Calculate the RMSE
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+# Hard-coded hypothetical values for the selected features for player Isaac Mcadoo
+CB_hypothetical = [81, 82, 80, 79, 81, 65, 68, 66, 81, 78]
+
+# Make a prediction using the fitted model and the hypothetical values
+prediction_CB = rf_best_CB.predict([CB_hypothetical])
+print("Selected features:", rf_best_CB)
+print("Prediction:", prediction_CB)#16.6MIL
+#FIFA - 24.5
+
+
+# ---------------------------------------------------------------------- LW -----------------------------------------------------------------------------------------------------
+
+##LW - Rating - Prediction
+
+LW_Rqd = LW_Rqd.drop(['Full Name', 'Best Position', 'Preferred Foot', 'Nationality', 'Club Name','Contract Until', 'Release Clause', 'Preferred Foot'], axis = 1)
+LW_Rqd = pd.get_dummies(LW_Rqd, drop_first = True)
+
+x = LW_Rqd.drop(columns = 'LW Rating')
+y = LW_Rqd['LW Rating']
+
+x_train,x_test, y_train, y_test = train_test_split(x,y,test_size = 0.3, random_state = 1)
+
+selector_LW = SelectKBest(score_func=f_regression, k=10)
+x_new = selector_LW.fit_transform(x, y)
+##Comment for TA - If you receive an error here, please add 'Unnamed: 27' to the dataframe line 946
+# Get the names of the selected features
+selected_features_LW = x.columns[selector_LW.get_support(indices=True)].tolist()
+
+# Fit a linear regression model with the selected features
+model_LW= LinearRegression()
+model_LW.fit(x_new, y)
+
+# Hard-coded hypothetical values for the selected features for Neymar
+x_LW_hypothetical = [83, 85, 93, 83, 85, 95, 94, 88, 86, 89]
+
+# Make a prediction using the fitted model and the hypothetical values for Neymar
+prediction_LW = model_LW.predict([x_LW_hypothetical])
+
+# Print the selected features and the prediction
+print("Selected features:", selected_features_LW)
+print("Prediction:", prediction_LW)#88
+#FIFA rating - 88
+
+
+##LW - Valuation - Prediction
+
+X = LW_Rqd[['Shooting Total', 'Passing Total', 'Dribbling Total', 'Finishing', 'Short Passing', 'Dribbling', 'BallControl', 'Reactions', 'Positioning', 'Vision']]
+Y = LW_Rqd['Value(in Euro)']
+
+# Split the data into training and testing sets
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1)
+
+# Train a Random Forest model on your data
+rf_LW = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_LW.fit(X_train, Y_train)
+
+# Get feature importances and sort them in descending order
+feature_importances_LW = rf_LW.feature_importances_
+sorted_idx_LW = np.argsort(feature_importances_LW)[::-1]
+
+# Get the indices of the 10 most important features
+top_10_idx_LW = sorted_idx_LW[:10]
+
+# Get the corresponding feature names
+top_10_features_LW = X_train.columns[top_10_idx_LW]
+
+#Put top 10 features in a dataframe called X_train and X_test
+X_train_top10_LW = X_train[top_10_features_LW]
+X_test_top10_LW = X_test[top_10_features_LW]
+
+# Train a Random Forest model on your data
+rf_top10_LW = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_top10_LW.fit(X_train_top10_LW, Y_train)
+
+Y_pred = rf_top10_LW.predict(X_test_top10_LW)
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+##Tuning
+# Define the parameter grid for hyperparameter tuning
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10]
+}
+
+# Create a Random Forest regressor object
+rf_LW = RandomForestRegressor(random_state=1)
+
+# Create a GridSearchCV object and fit it to the data
+grid_search = GridSearchCV(rf_LW, param_grid, cv=5, scoring='neg_root_mean_squared_error')
+grid_search.fit(X_train_top10_LW, Y_train)
+
+# Get the best hyperparameters
+best_params_LW = grid_search.best_params_
+
+# Use the best hyperparameters to create a new Random Forest model
+rf_best_LW = RandomForestRegressor(n_estimators=best_params_LW['n_estimators'], 
+                                 max_depth=best_params_LW['max_depth'], 
+                                 min_samples_split=best_params_LW['min_samples_split'], 
+                                 random_state=1)
+
+# Fit the new model on the training data
+rf_best_LW.fit(X_train_top10_LW, Y_train)
+
+# Make predictions on the test data
+Y_pred = rf_best_LW.predict(X_test_top10_LW)
+
+# Calculate the RMSE
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+# Hard-coded hypothetical values for the selected features for player NEYMAR
+LW_hypothetical = [88, 86, 94, 83, 93, 83, 95, 85, 89, 85]
+
+# Make a prediction using the fitted model and the hypothetical values
+prediction_LW = rf_best_LW.predict([LW_hypothetical])
+print("Selected features:", rf_best_LW)
+print("Prediction:", prediction_LW)#75285000
+#FIFA - 99.5
+
+# ---------------------------------------------------------------------- CDM -----------------------------------------------------------------------------------------------------
+
+##CDM - Rating - Prediction
+
+CDM_Rqd = CDM_Rqd.drop(['Full Name', 'Best Position', 'Preferred Foot', 'Nationality', 'Club Name','Contract Until', 'Release Clause', 'Preferred Foot'], axis = 1)
+CDM_Rqd = pd.get_dummies(CDM_Rqd, drop_first = True)
+
+x = CDM_Rqd.drop(columns = 'CDM Rating')
+y = CDM_Rqd['CDM Rating']
+
+x_train,x_test, y_train, y_test = train_test_split(x,y,test_size = 0.3, random_state = 1)
+
+selector_CDM = SelectKBest(score_func=f_regression, k=10)
+x_new = selector_CDM.fit_transform(x, y)
+##Comment for TA - If you receive an error here, please add 'Unnamed: 27' to the dataframe line 1057
+# Get the names of the selected features
+selected_features_CDM = x.columns[selector_CDM.get_support(indices=True)].tolist()
+
+# Fit a linear regression model with the selected features
+model_CDM= LinearRegression()
+model_CDM.fit(x_new, y)
+
+# Hard-coded hypothetical values for the selected features for NGOLO KANTE
+x_CDM_hypothetical = [74, 87, 82, 76, 81, 93, 91, 90, 93, 86]
+
+# Make a prediction using the fitted model and the hypothetical values for Roy Kent
+prediction_CDM = model_CDM.predict([x_CDM_hypothetical])
+
+# Print the selected features and the prediction
+print("Selected features:", selected_features_CDM)
+print("Prediction:", prediction_CDM)#87.3
+#FIFA - 89
+
+##CDM - Valuation - Prediction
+
+X = CDM_Rqd[['Passing Total','Defending Total','Short Passing','LongPassing','BallControl','Reactions','Interceptions','Marking','Standing Tackle','Sliding Tackle']]
+Y = CDM_Rqd['Value(in Euro)']
+
+# Split the data into training and testing sets
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1)
+
+# Train a Random Forest model on your data
+rf_CDM = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_CDM.fit(X_train, Y_train)
+
+# Get feature importances and sort them in descending order
+feature_importances_CDM = rf_CDM.feature_importances_
+sorted_idx_CDM = np.argsort(feature_importances_CDM)[::-1]
+
+# Get the indices of the 10 most important features
+top_10_idx_CDM = sorted_idx_CDM[:10]
+
+# Get the corresponding feature names
+top_10_features_CDM = X_train.columns[top_10_idx_CDM]
+
+#Put top 10 features in a dataframe called X_train and X_test
+X_train_top10_CDM = X_train[top_10_features_CDM]
+X_test_top10_CDM = X_test[top_10_features_CDM]
+
+# Train a Random Forest model on your data
+rf_top10_CDM = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_top10_CDM.fit(X_train_top10_CDM, Y_train)
+
+Y_pred = rf_top10_CDM.predict(X_test_top10_CDM)
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+##Tuning
+# Define the parameter grid for hyperparameter tuning
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10]
+}
+
+# Create a Random Forest regressor object
+rf_CDM = RandomForestRegressor(random_state=1)
+
+# Create a GridSearchCV object and fit it to the data
+grid_search = GridSearchCV(rf_CDM, param_grid, cv=5, scoring='neg_root_mean_squared_error')
+grid_search.fit(X_train_top10_CDM, Y_train)
+
+# Get the best hyperparameters
+best_params_CDM = grid_search.best_params_
+
+# Use the best hyperparameters to create a new Random Forest model
+rf_best_CDM = RandomForestRegressor(n_estimators=best_params_CDM['n_estimators'], 
+                                 max_depth=best_params_CDM['max_depth'], 
+                                 min_samples_split=best_params_CDM['min_samples_split'], 
+                                 random_state=1)
+
+# Fit the new model on the training data
+rf_best_CDM.fit(X_train_top10_CDM, Y_train)
+
+# Make predictions on the test data
+Y_pred = rf_best_CDM.predict(X_test_top10_CDM)
+
+# Calculate the RMSE
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+# Hard-coded hypothetical values for the selected features for player ROY KENT
+CDM_hypothetical = [87, 93, 93, 90, 81, 91, 82, 86, 76, 74]
+
+# Make a prediction using the fitted model and the hypothetical values
+prediction_CDM = rf_best_CDM.predict([CDM_hypothetical])
+print("Selected features:", rf_best_CDM)
+print("Prediction:", prediction_CDM)#77M
+#FIFA VALUE - 72M
+
+# ---------------------------------------------------------------------- LM -----------------------------------------------------------------------------------------------------
+
+##LM - Rating - Prediction
+
+LM_Rqd = LM_Rqd.drop(['Full Name', 'Best Position', 'Preferred Foot', 'Nationality', 'Club Name','Contract Until', 'Release Clause', 'Preferred Foot'], axis = 1)
+LM_Rqd = pd.get_dummies(LM_Rqd, drop_first = True)
+
+x = LM_Rqd.drop(columns = 'LM Rating')
+y = LM_Rqd['LM Rating']
+
+x_train,x_test, y_train, y_test = train_test_split(x,y,test_size = 0.3, random_state = 1)
+
+selector_LM = SelectKBest(score_func=f_regression, k=10)
+x_new = selector_LM.fit_transform(x, y)
+##Comment for TA - If you receive an error here, please add 'Unnamed: 27' to the dataframe line 1167
+# Get the names of the selected features
+selected_features_LM = x.columns[selector_LM.get_support(indices=True)].tolist()
+
+# Fit a linear regression model with the selected features
+model_LM= LinearRegression()
+model_LM.fit(x_new, y)
+
+# Hard-coded hypothetical values for the selected features for Collin Hughes
+x_LM_hypothetical = [59, 75, 81, 78, 77, 83, 79, 78, 77, 78]
+
+# Make a prediction using the fitted model and the hypothetical values for
+prediction_LM = model_LM.predict([x_LM_hypothetical])
+
+# Print the selected features and the prediction
+print("Selected features:", selected_features_LM)
+print("Prediction:", prediction_LM)#79
+#FIFA - 78
+
+##LM - Valuation - Prediction
+
+X = LM_Rqd[['Shooting Total','Passing Total','Dribbling Total','Crossing','Short Passing','Dribbling','BallControl','Reactions','Positioning','Vision']]
+Y = LM_Rqd['Value(in Euro)']
+
+# Split the data into training and testing sets
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1)
+
+# Train a Random Forest model on your data
+rf_LM= RandomForestRegressor(n_estimators=100, random_state=1)
+rf_LM.fit(X_train, Y_train)
+
+# Get feature importances and sort them in descending order
+feature_importances_LM = rf_LM.feature_importances_
+sorted_idx_LM = np.argsort(feature_importances_LM)[::-1]
+
+# Get the indices of the 10 most important features
+top_10_idx_LM = sorted_idx_LM[:10]
+
+# Get the corresponding feature names
+top_10_features_LM = X_train.columns[top_10_idx_LM]
+
+#Put top 10 features in a dataframe called X_train and X_test
+X_train_top10_LM = X_train[top_10_features_LM]
+X_test_top10_LM = X_test[top_10_features_LM]
+
+# Train a Random Forest model on your data
+rf_top10_LM = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_top10_LM.fit(X_train_top10_LM, Y_train)
+
+Y_pred = rf_top10_LM.predict(X_test_top10_LM)
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+##Tuning
+# Define the parameter grid for hyperparameter tuning
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10]
+}
+
+# Create a Random Forest regressor object
+rf_LM = RandomForestRegressor(random_state=1)
+
+# Create a GridSearchCV object and fit it to the data
+grid_search = GridSearchCV(rf_LM, param_grid, cv=5, scoring='neg_root_mean_squared_error')
+grid_search.fit(X_train_top10_LM, Y_train)
+
+# Get the best hyperparameters
+best_params_LM = grid_search.best_params_
+
+# Use the best hyperparameters to create a new Random Forest model
+rf_best_LM = RandomForestRegressor(n_estimators=best_params_LM['n_estimators'], 
+                                 max_depth=best_params_LM['max_depth'], 
+                                 min_samples_split=best_params_LM['min_samples_split'], 
+                                 random_state=1)
+
+# Fit the new model on the training data
+rf_best_LM.fit(X_train_top10_LM, Y_train)
+
+# Make predictions on the test data
+Y_pred = rf_best_LM.predict(X_test_top10_LM)
+
+# Calculate the RMSE
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+# Hard-coded hypothetical values for the selected features for player Collin Hughes
+LM_hypothetical = [79, 81, 83, 78, 78, 78, 77, 77, 75, 59]
+
+# Make a prediction using the fitted model and the hypothetical values
+prediction_LM = rf_best_LM.predict([LM_hypothetical])
+print("Selected features:", rf_best_LM)
+print("Prediction:", prediction_LM)#12.8 M
+#FIFA - 15.5M
+
+
+# ---------------------------------------------------------------------- LB -----------------------------------------------------------------------------------------------------
+##LB Position - Rating - Prediction
+
+LB_Rqd = LB_Rqd.drop(['Full Name', 'Best Position', 'Preferred Foot', 'Nationality', 'Club Name','Contract Until', 'Release Clause', 'Preferred Foot'], axis = 1)
+LB_Rqd = pd.get_dummies(LB_Rqd, drop_first = True)
+
+x = LB_Rqd.drop(columns = 'LB Rating')
+y = LB_Rqd['LB Rating']
+
+x_train,x_test, y_train, y_test = train_test_split(x,y,test_size = 0.3, random_state = 1)
+
+selector_LB = SelectKBest(score_func=f_regression, k=10)
+x_new = selector_LB.fit_transform(x, y)
+##Comment for TA - If you receive an error here, please add 'Unnamed: 27' to the dataframe line 1277
+# Get the names of the selected features
+selected_features_LB = x.columns[selector_LB.get_support(indices=True)].tolist()
+
+# Fit a linear regression model with the selected features
+model_LB= LinearRegression()
+model_LB.fit(x_new, y)
+
+# Hard-coded hypothetical values for the selected features for George Goodman
+x_LB_hypothetical = [74, 78, 75, 82, 76, 73, 75, 74, 79, 77]
+
+# Make a prediction using the fitted model and the hypothetical values for 
+prediction_LB = model_LB.predict([x_LB_hypothetical])
+
+# Print the selected features and the prediction
+print("Selected features:", selected_features_LB)
+print("Prediction:", prediction_LB) #Prediction - 78
+#FIFA - 79
+
+##LB - Valuation - Prediction
+X = LB_Rqd[['Passing Total','Dribbling Total','Defending Total','Crossing','BallControl','Reactions','Interceptions','Marking','Standing Tackle','Sliding Tackle']]
+Y = LB_Rqd['Value(in Euro)']
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1)
+
+# Train a Random Forest model on your data
+rf_LB = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_LB.fit(X_train, Y_train)
+
+# Get feature importances and sort them in descending order
+feature_importances_LB = rf_LB.feature_importances_
+sorted_idx_LB = np.argsort(feature_importances_LB)[::-1]
+
+# Get the indices of the 10 most important features
+top_10_idx_LB = sorted_idx_LB[:10]
+
+# Get the corresponding feature names
+top_10_features_LB = X_train.columns[top_10_idx_LB]
+
+#Put top 10 features in a dataframe called X_train and X_test
+X_train_top10_LB = X_train[top_10_features_LB]
+X_test_top10_LB = X_test[top_10_features_LB]
+
+# Train a Random Forest model on your data
+rf_top10_LB = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_top10_LB.fit(X_train_top10_LB, Y_train)
+
+Y_pred = rf_top10_LB.predict(X_test_top10_LB)
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+##Tuning
+# Define the parameter grid for hyperparameter tuning
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10]
+}
+
+# Create a Random Forest regressor object
+rf_LB = RandomForestRegressor(random_state=1)
+
+# Create a GridSearchCV object and fit it to the data
+grid_search = GridSearchCV(rf_LB, param_grid, cv=5, scoring='neg_root_mean_squared_error')
+grid_search.fit(X_train_top10_LB, Y_train)
+
+# Get the best hyperparameters
+best_params_LB = grid_search.best_params_
+
+# Use the best hyperparameters to create a new Random Forest model
+rf_best_LB = RandomForestRegressor(n_estimators=best_params_LB['n_estimators'], 
+                                 max_depth=best_params_LB['max_depth'], 
+                                 min_samples_split=best_params_LB['min_samples_split'], 
+                                 random_state=1)
+
+# Fit the new model on the training data
+rf_best_LB.fit(X_train_top10_LB, Y_train)
+
+# Make predictions on the test data
+Y_pred = rf_best_LB.predict(X_test_top10_LB)
+
+# Calculate the RMSE
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+# Hard-coded hypothetical values for the selected features for George Goodman
+X_LB_hypothetical = [73, 78, 79, 75, 76, 82, 75, 77, 74, 74]
+
+# Make a prediction using the fitted model and the hypothetical values
+prediction_LB = rf_best_LB.predict([X_LB_hypothetical])
+print("Selected features:", rf_best_LB)
+print("Prediction:", prediction_LB)#Valuation - 19862843//// 15.75
+#FIFA - 15.5M
+
+# ---------------------------------------------------------------------- LWB -----------------------------------------------------------------------------------------------------
+
+##LWB Position - Rating - Prediction
+LWB_Rqd = LWB_Rqd.drop(['Full Name', 'Best Position', 'Preferred Foot', 'Nationality', 'Club Name','Contract Until', 'Release Clause', 'Preferred Foot'], axis = 1)
+LWB_Rqd = pd.get_dummies(LWB_Rqd, drop_first = True)
+
+x = LWB_Rqd.drop(columns = 'LWB Rating')
+y = LWB_Rqd['LWB Rating']
+
+x_train,x_test, y_train, y_test = train_test_split(x,y,test_size = 0.3, random_state = 1)
+
+selector_LWB = SelectKBest(score_func=f_regression, k=10)
+x_new = selector_LWB.fit_transform(x, y)
+##Comment for TA - If you receive an error here, please add 'Unnamed: 27' to the dataframe line 1383
+# Get the names of the selected features
+selected_features_LWB = x.columns[selector_LWB.get_support(indices=True)].tolist()
+
+# Fit a linear regression model with the selected features
+model_LWB = LinearRegression()
+model_LWB.fit(x_new, y)
+
+# Hard-coded hypothetical values for the selected features for  BEN CHILLWELL
+x_LWB_hypothetical = [78, 78, 78, 84, 80, 81,81, 76, 80, 82]
+
+# Make a prediction using the fitted model and the hypothetical values for BEN CHILLWELL
+prediction_LWB = model_LWB.predict([x_LWB_hypothetical])
+
+# Print the selected features and the prediction
+print("Selected features:", selected_features_LWB)
+print("Prediction:", prediction_LWB)#82
+#FIFA - 82
+
+##LWB Position - Valuation - Prediction
+X = LWB_Rqd[['Passing Total','Dribbling Total', 'Defending Total','Crossing','Short Passing','BallControl','Reactions','Interceptions','Standing Tackle','Sliding Tackle']]
+Y = LWB_Rqd['Value(in Euro)']
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1)
+
+# Train a Random Forest model on your data
+rf_LWB = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_LWB.fit(X_train, Y_train)
+
+# Get feature importances and sort them in descending order
+feature_importances_LWB = rf_LWB.feature_importances_
+sorted_idx_LWB = np.argsort(feature_importances_LWB)[::-1]
+
+# Get the indices of the 10 most important features
+top_10_idx_LWB = sorted_idx_LWB[:10]
+
+# Get the corresponding feature names
+top_10_features_LWB = X_train.columns[top_10_idx_LWB]
+
+#Put top 10 features in a dataframe called X_train and X_test
+X_train_top10_LWB= X_train[top_10_features_LWB]
+X_test_top10_LWB = X_test[top_10_features_LWB]
+
+# Train a Random Forest model on your data
+rf_top10_LWB = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_top10_LWB.fit(X_train_top10_LWB, Y_train)
+
+Y_pred = rf_top10_LWB.predict(X_test_top10_LWB)
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+##Tuning
+# Define the parameter grid for hyperparameter tuning
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10]
+}
+
+# Create a Random Forest regressor object
+rf_LWB = RandomForestRegressor(random_state=1)
+
+# Create a GridSearchCV object and fit it to the data
+grid_search = GridSearchCV(rf_LWB, param_grid, cv=5, scoring='neg_root_mean_squared_error')
+grid_search.fit(X_train_top10_LWB, Y_train)
+
+# Get the best hyperparameters
+best_params_LWB = grid_search.best_params_
+
+# Use the best hyperparameters to create a new Random Forest model
+rf_best_LWB = RandomForestRegressor(n_estimators=best_params_LWB['n_estimators'], 
+                                 max_depth=best_params_LWB['max_depth'], 
+                                 min_samples_split=best_params_LWB['min_samples_split'], 
+                                 random_state=1)
+
+# Fit the new model on the training data
+rf_best_LWB.fit(X_train_top10_LWB, Y_train)
+
+# Make predictions on the test data
+Y_pred = rf_best_LWB.predict(X_test_top10_LWB)
+
+# Calculate the RMSE
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+# Hard-coded hypothetical values for the selected features for Ben Chilwell
+X_LWB_hypothetical = [81, 78, 78, 76, 80, 81, 80, 78, 82, 84]
+
+
+# Make a prediction using the fitted model and the hypothetical values
+prediction_LWB= rf_best_LWB.predict([X_LWB_hypothetical])
+print("Selected features:", rf_best_LWB)
+print("Prediction:", prediction_LWB)#Valuation Model - 30511454
+#FIFA - 37M
+
+# ---------------------------------------------------------------------- RWB -----------------------------------------------------------------------------------------------------
+
+##RWB Position - Rating - Prediction
+
+RWB_Rqd = RWB_Rqd.drop(['Full Name', 'Best Position', 'Preferred Foot', 'Nationality', 'Club Name','Contract Until', 'Release Clause', 'Preferred Foot'], axis = 1)
+RWB_Rqd = pd.get_dummies(RWB_Rqd, drop_first = True)
+
+x = RWB_Rqd.drop(columns = 'RWB Rating')
+y = RWB_Rqd['RWB Rating']
+
+x_train,x_test, y_train, y_test = train_test_split(x,y,test_size = 0.3, random_state = 1)
+
+selector_RWB = SelectKBest(score_func=f_regression, k=10)
+x_new = selector_RWB.fit_transform(x, y)
+##Comment for TA - If you receive an error here, please add 'Unnamed: 27' to the dataframe line 1491
+# Get the names of the selected features
+selected_features_RWB = x.columns[selector_RWB.get_support(indices=True)].tolist()
+
+# Fit a linear regression model with the selected features
+model_RWB= LinearRegression()
+model_RWB.fit(x_new, y)
+
+# Hard-coded hypothetical values for the selected features for Ash Dixon
+x_RWB_hypothetical = [72, 71, 75, 76, 75, 70, 78, 75, 79, 80]
+
+# Make a prediction using the fitted model and the hypothetical values for Ash Dixon
+prediction_RWB = model_RWB.predict([x_RWB_hypothetical])
+
+# Print the selected features and the prediction
+print("Selected features:", selected_features_RWB)
+print("Prediction:", prediction_RWB) #Prediction - 78.18
+#Fifa Rating - 79
+
+##RWB Position - Valuation - Prediction
+X = RWB_Rqd[['Passing Total','Dribbling Total', 'Defending Total','Crossing','Short Passing','BallControl','Reactions','Interceptions','Standing Tackle','Sliding Tackle']]
+Y = RWB_Rqd['Value(in Euro)']
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1)
+
+# Train a Random Forest model on your data
+rf_RWB = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_RWB.fit(X_train, Y_train)
+
+# Get feature importances and sort them in descending order
+feature_importances_RWB = rf_RWB.feature_importances_
+sorted_idx_RWB = np.argsort(feature_importances_RWB)[::-1]
+
+# Get the indices of the 10 most important features
+top_10_idx_RWB = sorted_idx_RWB[:10]
+
+# Get the corresponding feature names
+top_10_features_RWB = X_train.columns[top_10_idx_RWB]
+
+#Put top 10 features in a dataframe called X_train and X_test
+X_train_top10_RWB= X_train[top_10_features_RWB]
+X_test_top10_RWB = X_test[top_10_features_RWB]
+
+# Train a Random Forest model on your data
+rf_top10_RWB = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_top10_RWB.fit(X_train_top10_RWB, Y_train)
+
+Y_pred = rf_top10_RWB.predict(X_test_top10_RWB)
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+##Tuning
+# Define the parameter grid for hyperparameter tuning
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10]
+}
+
+# Create a Random Forest regressor object
+rf_RWB = RandomForestRegressor(random_state=1)
+
+# Create a GridSearchCV object and fit it to the data
+grid_search = GridSearchCV(rf_RWB, param_grid, cv=5, scoring='neg_root_mean_squared_error')
+grid_search.fit(X_train_top10_RWB, Y_train)
+
+# Get the best hyperparameters
+best_params_RWB = grid_search.best_params_
+
+# Use the best hyperparameters to create a new Random Forest model
+rf_best_RWB = RandomForestRegressor(n_estimators=best_params_RWB['n_estimators'], 
+                                 max_depth=best_params_RWB['max_depth'], 
+                                 min_samples_split=best_params_RWB['min_samples_split'], 
+                                 random_state=1)
+
+# Fit the new model on the training data
+rf_best_RWB.fit(X_train_top10_RWB, Y_train)
+
+# Make predictions on the test data
+Y_pred = rf_best_RWB.predict(X_test_top10_RWB)
+
+# Calculate the RMSE
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+# Hard-coded hypothetical values for the selected features for Ash Dixon
+X_RWB_hypothetical = [79, 78, 75, 71, 70, 76, 80, 72, 75, 75]
+
+# Make a prediction using the fitted model and the hypothetical values
+prediction_RWB= rf_best_RWB.predict([X_RWB_hypothetical])
+print("Selected features:", rf_best_RWB)
+print("Prediction:", prediction_RWB)#17388200
+#FIFA - 17M
+
+# ---------------------------------------------------------------------- RM -----------------------------------------------------------------------------------------------------
+
+##RM Position - Rating - Prediction
+
+RM_Rqd = RM_Rqd.drop(['Full Name', 'Best Position', 'Preferred Foot', 'Nationality', 'Club Name','Contract Until', 'Release Clause', 'Preferred Foot'], axis = 1)
+RM_Rqd = pd.get_dummies(RM_Rqd, drop_first = True)
+
+x = RM_Rqd.drop(columns = 'RM Rating')
+y = RM_Rqd['RM Rating']
+
+x_train,x_test, y_train, y_test = train_test_split(x,y,test_size = 0.3, random_state = 1)
+
+selector_RM = SelectKBest(score_func=f_regression, k=10)
+x_new = selector_RM.fit_transform(x, y)
+##Comment for TA - If you receive an error here, please add 'Unnamed: 27' to the dataframe line 1598
+# Get the names of the selected features
+selected_features_RM = x.columns[selector_RM.get_support(indices=True)].tolist()
+
+# Fit a linear regression model with the selected features
+model_RM= LinearRegression()
+model_RM.fit(x_new, y)
+
+# Hard-coded hypothetical values for the selected features for Sam Obisanya
+x_RM_hypothetical = [74, 78, 81, 81, 79, 83, 80, 75, 77, 80]
+
+# Make a prediction using the fitted model and the hypothetical values for 
+prediction_RM = model_RM.predict([x_RM_hypothetical])
+
+# Print the selected features and the prediction
+print("Selected features:", selected_features_RM)
+print("Prediction:", prediction_RM) #Sam Obisanya - 80.5
+#Fifa - 82
+
+##RM Position - Valuation - Prediction
+X = RM_Rqd[['Shooting Total','Passing Total','Dribbling Total','Crossing','Short Passing','Dribbling','BallControl','Reactions','Positioning','Vision']]
+Y = RM_Rqd['Value(in Euro)']
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1)
+
+# Train a Random Forest model on your data
+rf_RM = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_RM.fit(X_train, Y_train)
+
+# Get feature importances and sort them in descending order
+feature_importances_RM = rf_RM.feature_importances_
+sorted_idx_RM = np.argsort(feature_importances_RM)[::-1]
+
+# Get the indices of the 10 most important features
+top_10_idx_RM = sorted_idx_RM[:10]
+
+# Get the corresponding feature names
+top_10_features_RM = X_train.columns[top_10_idx_RM]
+
+#Put top 10 features in a dataframe called X_train and X_test
+X_train_top10_RM = X_train[top_10_features_RM]
+X_test_top10_RM = X_test[top_10_features_RM]
+
+# Train a Random Forest model on your data
+rf_top10_RM = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_top10_RM.fit(X_train_top10_RM, Y_train)
+
+Y_pred = rf_top10_RM.predict(X_test_top10_RM)
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+##Tuning
+# Define the parameter grid for hyperparameter tuning
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10]
+}
+
+# Create a Random Forest regressor object
+rf_RM = RandomForestRegressor(random_state=1)
+
+# Create a GridSearchCV object and fit it to the data
+grid_search = GridSearchCV(rf_RM, param_grid, cv=5, scoring='neg_root_mean_squared_error')
+grid_search.fit(X_train_top10_RM, Y_train)
+
+# Get the best hyperparameters
+best_params_RM = grid_search.best_params_
+
+# Use the best hyperparameters to create a new Random Forest model
+rf_best_RM = RandomForestRegressor(n_estimators=best_params_RM['n_estimators'], 
+                                 max_depth=best_params_RM['max_depth'], 
+                                 min_samples_split=best_params_RM['min_samples_split'], 
+                                 random_state=1)
+
+# Fit the new model on the training data
+rf_best_RM.fit(X_train_top10_RM, Y_train)
+
+# Make predictions on the test data
+Y_pred = rf_best_RM.predict(X_test_top10_RM)
+
+# Calculate the RMSE
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+# Hard-coded hypothetical values for the selected features for Sam Obisanya
+X_RM_hypothetical = [81,83,75,80,77,79,81,74,80,78]
+
+# Make a prediction using the fitted model and the hypothetical values
+prediction_RM = rf_best_RM.predict([X_RM_hypothetical])
+print("Selected features:", rf_best_RM)
+print("Prediction:", prediction_RM)#Valuation - 22530000
+#FIFA - 52.5M
+
+# ---------------------------------------------------------------------- RB -----------------------------------------------------------------------------------------------------
+
+##RB Position - Rating - Prediction
+RB_Rqd = RB_Rqd.drop(['Full Name', 'Best Position', 'Preferred Foot', 'Nationality', 'Club Name','Contract Until', 'Release Clause', 'Preferred Foot'], axis = 1)
+RB_Rqd = pd.get_dummies(RB_Rqd, drop_first = True)
+
+x = RB_Rqd.drop(columns = 'RB Rating')
+y = RB_Rqd['RB Rating']
+
+x_train,x_test, y_train, y_test = train_test_split(x,y,test_size = 0.3, random_state = 1)
+
+selector_RB = SelectKBest(score_func=f_regression, k=10)
+x_new = selector_RB.fit_transform(x, y)
+##Comment for TA - If you receive an error here, please add 'Unnamed: 27' to the dataframe line 1704
+# Get the names of the selected features
+selected_features_RB = x.columns[selector_RB.get_support(indices=True)].tolist()
+
+# Fit a linear regression model with the selected features
+model_RB= LinearRegression()
+model_RB.fit(x_new, y)
+
+# Hard-coded hypothetical values for the selected features for Achraf Hakimi
+x_RB_hypothetical = [79, 80, 75, 81, 82, 81, 78, 75, 76, 76]
+
+# Make a prediction using the fitted model and the hypothetical values for 
+prediction_RB = model_RB.predict([x_RB_hypothetical])
+
+# Print the selected features and the prediction
+print("Selected features:", selected_features_RB)
+print("Prediction:", prediction_RB) #Prediction - 80.8
+#FIFA - 81
+
+##RB - Valuation - Prediction
+X = RB_Rqd[['Passing Total','Dribbling Total','Defending Total','Short Passing','BallControl','Reactions','Interceptions','Marking','Standing Tackle','Sliding Tackle']]
+Y = RB_Rqd['Value(in Euro)']
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1)
+
+# Train a Random Forest model on your data
+rf_RB = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_RB.fit(X_train, Y_train)
+
+# Get feature importances and sort them in descending order
+feature_importances_RB = rf_RB.feature_importances_
+sorted_idx_RB = np.argsort(feature_importances_RB)[::-1]
+
+# Get the indices of the 10 most important features
+top_10_idx_RB = sorted_idx_RB[:10]
+
+# Get the corresponding feature names
+top_10_features_RB = X_train.columns[top_10_idx_RB]
+
+#Put top 10 features in a dataframe called X_train and X_test
+X_train_top10_RB = X_train[top_10_features_RB]
+X_test_top10_RB = X_test[top_10_features_RB]
+
+# Train a Random Forest model on your data
+rf_top10_RB = RandomForestRegressor(n_estimators=100, random_state=1)
+rf_top10_RB.fit(X_train_top10_RB, Y_train)
+
+Y_pred = rf_top10_RB.predict(X_test_top10_RB)
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+##Tuning
+# Define the parameter grid for hyperparameter tuning
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10]
+}
+
+# Create a Random Forest regressor object
+rf_RB = RandomForestRegressor(random_state=1)
+
+# Create a GridSearchCV object and fit it to the data
+grid_search = GridSearchCV(rf_RB, param_grid, cv=5, scoring='neg_root_mean_squared_error')
+grid_search.fit(X_train_top10_RB, Y_train)
+
+# Get the best hyperparameters
+best_params_RB = grid_search.best_params_
+
+# Use the best hyperparameters to create a new Random Forest model
+rf_best_RB = RandomForestRegressor(n_estimators=best_params_RB['n_estimators'], 
+                                 max_depth=best_params_RB['max_depth'], 
+                                 min_samples_split=best_params_RB['min_samples_split'], 
+                                 random_state=1)
+
+# Fit the new model on the training data
+rf_best_RB.fit(X_train_top10_RB, Y_train)
+
+# Make predictions on the test data
+Y_pred = rf_best_RB.predict(X_test_top10_RB)
+
+# Calculate the RMSE
+rmse = np.sqrt(mean_squared_error(Y_test, Y_pred))
+print("RMSE on testing set:", rmse)
+
+# Hard-coded hypothetical values for the selected features for Achraf Hakimi
+X_RB_hypothetical = [80, 76, 75, 81, 82, 76, 78, 79, 81, 75]
+
+# Make a prediction using the fitted model and the hypothetical values
+prediction_RB = rf_best_RB.predict([X_RB_hypothetical])
+print("Selected features:", rf_best_RB)
+print("Prediction:", prediction_RB)#Valuation - 15386590
+#FIFA - 53.5M
